@@ -3,39 +3,19 @@ import { Toaster } from './components/ui/sonner';
 import { ScannerView } from './components/ScannerView';
 import { ResultsView } from './components/ResultsView';
 import { MovieDetail } from './components/MovieDetail';
-
-export type MediaItem = {
-  id: string;
-  title: string;
-  year: string;
-  type: 'movie' | 'series';
-  poster: string;
-  imdb: number;
-  rottenTomatoes: number;
-  screenCritic: number;
-  friendsRating: number;
-  genre: string;
-  synopsis: string;
-  friendsReviews: Array<{
-    name: string;
-    avatar: string;
-    rating: number;
-    comment: string;
-    date: string;
-  }>;
-};
+import type { MediaTitle } from './types/media';
 
 export default function App() {
   const [view, setView] = useState<'scanner' | 'results' | 'detail'>('scanner');
-  const [scannedResults, setScannedResults] = useState<MediaItem[]>([]);
-  const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [scannedResults, setScannedResults] = useState<MediaTitle[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<MediaTitle | null>(null);
 
-  const handleScanComplete = (results: MediaItem[]) => {
+  const handleScanComplete = (results: MediaTitle[]) => {
     setScannedResults(results);
     setView('results');
   };
 
-  const handleMediaSelect = (media: MediaItem) => {
+  const handleMediaSelect = (media: MediaTitle) => {
     setSelectedMedia(media);
     setView('detail');
   };

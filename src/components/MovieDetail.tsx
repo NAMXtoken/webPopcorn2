@@ -5,29 +5,33 @@ import { Avatar } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
-import type { MediaItem } from '../App';
+import type { MediaTitle } from '../types/media';
+import { getAverageCommunityScore } from '../types/media';
 
 interface MovieDetailProps {
-  media: MediaItem;
+  media: MediaTitle;
   onBack: () => void;
   onNewScan: () => void;
 }
 
-function RatingCard({ 
-  icon: Icon, 
-  label, 
-  score, 
-  maxScore = 10, 
-  color 
-}: { 
-  icon: React.ElementType; 
-  label: string; 
-  score: number; 
-  maxScore?: number; 
+interface RatingCardProps {
+  icon: React.ElementType;
+  label: string;
+  score?: number;
+  maxScore?: number;
   color: string;
-}) {
-  const percentage = (score / maxScore) * 100;
-  
+}
+
+function RatingCard({
+  icon: Icon,
+  label,
+  score,
+  maxScore = 10,
+  color,
+}: RatingCardProps) {
+  const safeScore = typeof score === 'number' && !Number.isNaN(score) ? score : null;
+  const percentage = safeScore !== null ? Math.min((safeScore / maxScore) * 100, 100) : 0;
+
   return (
     <Card className="p-4 bg-[#2b2930] border border-[#3a3740] shadow-md">
       <div className="flex items-center gap-3 mb-3">
@@ -37,7 +41,9 @@ function RatingCard({
         <span className="text-sm text-gray-400">{label}</span>
       </div>
       <div className="flex items-end gap-2">
-        <span className="text-3xl font-semibold text-white">{score.toFixed(1)}</span>
+        <span className="text-3xl font-semibold text-white">
+          {safeScore !== null ? safeScore.toFixed(1) : '—'}
+        </span>
         <span className="text-gray-500 mb-1">/ {maxScore}</span>
       </div>
       <div className="mt-2 h-2 bg-[#1c1b1f] rounded-full overflow-hidden">
@@ -50,12 +56,12 @@ function RatingCard({
   );
 }
 
-function FriendReview({ review }: { review: MediaItem['friendsReviews'][0] }) {
+function FriendReview({ review }: { review: MediaTitle['friendsReviews'][0] }) {
   return (
     <Card className="p-4 bg-[#2b2930] border border-[#3a3740] shadow-md">
       <div className="flex gap-3">
         <Avatar className="w-12 h-12 border-2 border-[#6750a4]">
-          <img src={review.avatar} alt={review.name} className="w-full h-full object-cover" />
+          <img src={review.avatarUrl} alt={review.name} className="w-full h-full object-cover" />
         </Avatar>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -66,7 +72,7 @@ function FriendReview({ review }: { review: MediaItem['friendsReviews'][0] }) {
             </div>
           </div>
           <p className="text-sm text-gray-300 mb-2">{review.comment}</p>
-          <span className="text-xs text-gray-500">{review.date}</span>
+          <span className="text-xs text-gray-500">{review.relativeDate}</span>
         </div>
       </div>
     </Card>
@@ -74,7 +80,16 @@ function FriendReview({ review }: { review: MediaItem['friendsReviews'][0] }) {
 }
 
 export function MovieDetail({ media, onBack, onNewScan }: MovieDetailProps) {
-  const avgRating = ((media.imdb + media.rottenTomatoes / 10 + media.screenCritic / 10 + media.friendsRating) / 4).toFixed(1);
+  const avgRating = getAverageCommunityScore(media.ratings);
+  const overallLabel = avgRating !== null ? avgRating.toFixed(1) : '—';
+  const isHighlyRated = avgRating !== null && avgRating >= 8.5;
+  const posterUrl =
+    media.backdropUrl ??
+    media.posterUrl ??
+    'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=1200&h=800&fit=crop';
+  const releaseMeta = [media.releaseYear, media.genres.join(', ')].filter(Boolean).join(' • ');
+  const friendsAverage =
+    media.friendsSummary?.average ?? media.ratings.friends ?? undefined;
 
   return (
     <div className="min-h-screen bg-[#1c1b1f]">
@@ -84,7 +99,7 @@ export function MovieDetail({ media, onBack, onNewScan }: MovieDetailProps) {
           {/* Background Image */}
           <div className="absolute inset-0">
             <img
-              src={media.poster}
+              src={posterUrl}
               alt={media.title}
               className="w-full h-full object-cover"
             />
@@ -115,21 +130,23 @@ export function MovieDetail({ media, onBack, onNewScan }: MovieDetailProps) {
           <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
             <div className="flex items-center gap-2 mb-2">
               <Badge className="bg-[#6750a4] backdrop-blur-sm border-0 text-white">
-                {media.type}
+                {media.kind}
               </Badge>
-              <Badge className="bg-[#eaddff] text-[#6750a4] border-0">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                Highly Rated
-              </Badge>
+              {isHighlyRated && (
+                <Badge className="bg-[#eaddff] text-[#6750a4] border-0">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  Highly Rated
+                </Badge>
+              )}
             </div>
             <h1 className="text-white mb-2">{media.title}</h1>
-            <p className="text-gray-400 mb-3">{media.year} • {media.genre}</p>
+            {releaseMeta && <p className="text-gray-400 mb-3">{releaseMeta}</p>}
             
             {/* Overall Rating */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
                 <Star className="w-5 h-5 fill-[#fef7cd] text-[#fef7cd]" />
-                <span className="text-xl font-semibold">{avgRating}</span>
+                <span className="text-xl font-semibold">{overallLabel}</span>
                 <span className="text-sm text-gray-300">/ 10</span>
               </div>
               <span className="text-gray-300">Overall Rating</span>
@@ -142,7 +159,14 @@ export function MovieDetail({ media, onBack, onNewScan }: MovieDetailProps) {
           {/* Synopsis */}
           <Card className="p-5 bg-[#2b2930] border border-[#3a3740] shadow-md">
             <h2 className="mb-3 text-white">Synopsis</h2>
-            <p className="text-gray-300 leading-relaxed">{media.synopsis}</p>
+            <p className="text-gray-300 leading-relaxed">
+              {media.synopsis ?? 'Synopsis coming soon. Connect metadata providers to populate this section.'}
+            </p>
+            {media.sourceAttribution && (
+              <p className="text-xs text-gray-500 mt-3">
+                Source: {media.sourceAttribution}
+              </p>
+            )}
           </Card>
 
           {/* Ratings Grid */}
@@ -152,27 +176,27 @@ export function MovieDetail({ media, onBack, onNewScan }: MovieDetailProps) {
               <RatingCard
                 icon={Star}
                 label="IMDb"
-                score={media.imdb}
+                score={media.ratings.imdb}
                 color="bg-[#fef7cd]/10 text-[#fef7cd]"
               />
               <RatingCard
                 icon={ThumbsUp}
                 label="Rotten Tomatoes"
-                score={media.rottenTomatoes}
+                score={media.ratings.rottenTomatoes}
                 maxScore={100}
                 color="bg-[#ffb4ab]/10 text-[#ffb4ab]"
               />
               <RatingCard
                 icon={TrendingUp}
                 label="Screen Critic"
-                score={media.screenCritic}
+                score={media.ratings.screenCritic}
                 maxScore={100}
                 color="bg-[#a8c7fa]/10 text-[#a8c7fa]"
               />
               <RatingCard
                 icon={Users}
                 label="Friends Rating"
-                score={media.friendsRating}
+                score={friendsAverage}
                 color="bg-[#d0bcff]/10 text-[#d0bcff]"
               />
             </div>
@@ -186,11 +210,17 @@ export function MovieDetail({ media, onBack, onNewScan }: MovieDetailProps) {
               <Users className="w-5 h-5 text-[#d0bcff]" />
               <h2 className="text-white">Friends Reviews ({media.friendsReviews.length})</h2>
             </div>
-            <div className="space-y-3">
-              {media.friendsReviews.map((review, index) => (
-                <FriendReview key={index} review={review} />
-              ))}
-            </div>
+            {media.friendsReviews.length > 0 ? (
+              <div className="space-y-3">
+                {media.friendsReviews.map((review) => (
+                  <FriendReview key={review.id} review={review} />
+                ))}
+              </div>
+            ) : (
+              <Card className="p-4 bg-[#2b2930] border border-[#3a3740] text-gray-400 text-sm">
+                No friend reviews yet. Invite your friends to share what they thought!
+              </Card>
+            )}
           </div>
 
           {/* Bottom spacing */}
